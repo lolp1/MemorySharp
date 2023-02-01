@@ -15,6 +15,7 @@ namespace Binarysharp.MSharp.Native
     /// <summary>
     /// Static class referencing all P/Invoked functions used by the library.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1401:P/Invokes should not be visible", Justification = "<Pending>")]
     public static class NativeMethods
     {
         #region CloseHandle
@@ -63,6 +64,15 @@ namespace Binarysharp.MSharp.Native
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern SafeMemoryHandle CreateRemoteThread(SafeMemoryHandle hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress,
             IntPtr lpParameter, ThreadCreationFlags dwCreationFlags, out int lpThreadId);
+        #endregion
+
+        #region GetCurrentThreadId
+        /// <summary>
+        /// Retrieves the thread identifier of the calling thread.
+        /// </summary>
+        /// <returns>The return value is the identifier of the calling thread.</returns>
+        [DllImport("kernel32.dll")]
+        public static extern uint GetCurrentThreadId();
         #endregion
 
         #region FreeLibrary
@@ -298,6 +308,29 @@ namespace Binarysharp.MSharp.Native
         /// <returns>The return value is the identifier of the thread that created the window.</returns>
         [DllImport("user32.dll")]
         public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
+        /// <summary>
+        /// Retrieves the identifier of the thread that created the specified window and, optionally, the identifier of the process that created the window.
+        /// </summary>
+        /// <param name="hWnd">A handle to the window.</param>
+        /// <param name="lpdwProcessId">
+        /// [Out] A pointer to a variable that receives the process identifier.
+        /// If this parameter is not <c>NULL</c>, <see cref="GetWindowThreadProcessId"/> copies the identifier of the process to the variable; otherwise, it does not.
+        /// </param>
+        /// <returns>The return value is the identifier of the thread that created the window.</returns>
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        /// <summary>
+        /// Retrieves the identifier of the thread that created the specified window and, optionally, the identifier of the process that created the window.
+        /// </summary>
+        /// <param name="hWnd">A handle to the window.</param>
+        /// <param name="lpdwProcessId">
+        /// [Out] A pointer to a variable that receives the process identifier.
+        /// If this parameter is not <c>NULL</c>, <see cref="GetWindowThreadProcessId"/> copies the identifier of the process to the variable; otherwise, it does not.
+        /// </param>
+        /// <remarks>When you don't want the ProcessId, use this overload and pass IntPtr.Zero for the second parameter</remarks>
+        /// <returns>The return value is the identifier of the thread that created the window.</returns>
+        [DllImport("user32.dll")]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr ProcessId);
         #endregion
 
         #region EnumChildWindows
@@ -429,7 +462,7 @@ namespace Binarysharp.MSharp.Native
         /// </param>
         /// <returns>Returns an NTSTATUS success or error code. (STATUS_SUCCESS = 0x0).</returns>
         [DllImport("ntdll.dll")]
-        public static extern unsafe uint NtQueryInformationProcess(SafeMemoryHandle processHandle, ProcessInformationClass processInformationClass, 
+        public static extern unsafe uint NtQueryInformationProcess(SafeMemoryHandle processHandle, ProcessInformationClass processInformationClass,
             void* processInformation, IntPtr processInformationLength, out IntPtr returnLength);
         #endregion
 
@@ -598,6 +631,52 @@ namespace Binarysharp.MSharp.Native
         public static extern bool SetForegroundWindow(IntPtr hWnd);
         #endregion
 
+        #region AttachThreadInput
+        /// <summary>
+        /// Attaches or detaches the input processing mechanism of one thread to that of another thread.
+        /// </summary>
+        /// <param name="idAttach">The identifier of the thread to be attached to another thread. The thread to be attached cannot be a system thread.</param>
+        /// <param name="idAttachTo">The identifier of the thread to which idAttach will be attached. This thread cannot be a system thread. <remarrks>>A thread cannot attach to itself.Therefore, idAttachTo cannot equal idAttach.</remarrks</param>
+        /// <param name="fAttach">If this parameter is TRUE, the two threads are attached. If the parameter is FALSE, the threads are detached.</param>
+        /// <returns>If the function succeeds, the return value is nonzero. If the function fails, the return value is zero. To get extended error information, call GetLastError.</returns>
+        /// <remarks>
+        /// By using the AttachThreadInput function, a thread can share its input states (such as keyboard states and the current focus window) with another thread. Keyboard and mouse events received by both threads are processed in the order they were received until the threads are detached by calling AttachThreadInput a second time and specifying FALSE for the fAttach parameter.
+        /// The AttachThreadInput function fails if either of the specified threads does not have a message queue.The system creates a thread's message queue when the thread makes its first call to one of the USER or GDI functions. The AttachThreadInput function also fails if a journal record hook is installed. Journal record hooks attach all input queues together.
+        /// Note that key state, which can be ascertained by calls to the GetKeyState or GetKeyboardState function, is reset after a call to AttachThreadInput.You cannot attach a thread to a thread in another desktop.
+        /// </remarks>
+        [DllImport("user32.dll")]
+        public static extern bool AttachThreadInput(uint idAttach,
+            uint idAttachTo, bool fAttach);
+        #endregion
+
+        #region BringWindowToTop
+        /// <summary>
+        ///  Brings the specified window to the top of the Z order. If the window is a top-level window, it is activated. If the window is a child window, the top-level parent window associated with the child window is activated.
+        /// </summary>
+        /// <param name="hWnd">A handle to the window to bring to the top of the Z order.</param>
+        /// <returns>If the function succeeds, the return value is nonzero. If the function fails, the return value is zero. To get extended error information, call GetLastError.</returns>
+        /// <remarks>
+        /// Use the BringWindowToTop function to uncover any window that is partially or completely obscured by other windows. 
+        /// Calling this function is similar to calling the SetWindowPos function to change a window's position in the Z order. BringWindowToTop does not make a window a top-level window.
+        /// </remarks>
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool BringWindowToTop(IntPtr hWnd);
+        #endregion
+
+        #region BringWindowToTop
+        /// <summary>
+        ///  Brings the specified window to the top of the Z order. If the window is a top-level window, it is activated. If the window is a child window, the top-level parent window associated with the child window is activated.
+        /// </summary>
+        /// <param name="hWnd">A handle to the window to bring to the top of the Z order.</param>
+        /// <returns>If the function succeeds, the return value is nonzero. If the function fails, the return value is zero. To get extended error information, call GetLastError.</returns>
+        /// <remarks>
+        /// Use the BringWindowToTop function to uncover any window that is partially or completely obscured by other windows. 
+        /// Calling this function is similar to calling the SetWindowPos function to change a window's position in the Z order. BringWindowToTop does not make a window a top-level window.
+        /// </remarks>
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern bool BringWindowToTop(HandleRef hWnd);
+        #endregion
+
         #region SetThreadContext
         /// <summary>
         /// Sets the context for the specified thread. A 64-bit application can set the context of a WOW64 thread using the Wow64SetThreadContext function.
@@ -651,7 +730,16 @@ namespace Binarysharp.MSharp.Native
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern bool SetWindowText(IntPtr hwnd, string lpString);
         #endregion
-
+        #region IsIconic
+        /// <summary>
+        /// Determines whether the specified window is minimized (iconic).
+        /// </summary>
+        /// <param name="hWnd">A handle to the window to be tested.</param>
+        /// <returns>If the window is iconic, the return value is nonzero. If the window is not iconic, the return value is zero.</returns>
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool IsIconic(IntPtr hWnd);
+        #endregion
         #region ShowWindow
         /// <summary>
         /// Sets the specified window's show state.
@@ -671,7 +759,16 @@ namespace Binarysharp.MSharp.Native
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool ShowWindow(IntPtr hWnd, WindowStates nCmdShow);
         #endregion
-
+        #region SetFocus
+        ///<summary>
+        ///Sets the keyboard focus to the specified window. The window must be attached to the calling thread's message queue.
+        ///</summary>
+        ///<param name="hWnd">A handle to the window that will receive the keyboard input. If this parameter is NULL, keystrokes are ignored.</param>
+        ///<returns>If the function succeeds, the return value is the handle to the window that previously had the keyboard focus. If the hWnd parameter is invalid or the window is not attached to the calling thread's message queue, the return value is NULL. To get extended error information, call GetLastError function. Extended error ERROR_INVALID_PARAMETER(0x57) means that window is in disabled state.</returns>
+        ///<remarks>
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr SetFocus(IntPtr hWnd);
+        #endregion
         #region SuspendThread
         /// <summary>
         /// Suspends the specified thread. A 64-bit application can suspend a WOW64 thread using the Wow64SuspendThread function.
@@ -863,7 +960,7 @@ namespace Binarysharp.MSharp.Native
         /// If the function succeeds, the return value is nonzero. 
         /// If the function fails, the return value is zero. To get extended error information, call <see cref="Marshal.GetLastWin32Error"/>.
         /// </returns>
-        [DllImport("kernel32.dll",SetLastError = true)]
+        [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool WriteProcessMemory(SafeMemoryHandle hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, int nSize, out int lpNumberOfBytesWritten);
         #endregion

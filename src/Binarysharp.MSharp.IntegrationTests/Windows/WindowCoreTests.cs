@@ -43,16 +43,16 @@ namespace Binarysharp.MSharp.IntegrationTests.Windows
             IEnumerable<IntPtr> handles2 = null;
             var r = new ManualResetEvent(false);
 
-// ReSharper disable ImplicitlyCapturedClosure
+            // ReSharper disable ImplicitlyCapturedClosure
             var t1 = new Thread(() =>
-// ReSharper restore ImplicitlyCapturedClosure
+            // ReSharper restore ImplicitlyCapturedClosure
                 {
                     r.WaitOne();
                     handles1 = WindowCore.EnumTopLevelWindows();
                 });
-// ReSharper disable ImplicitlyCapturedClosure
+            // ReSharper disable ImplicitlyCapturedClosure
             var t2 = new Thread(() =>
-// ReSharper restore ImplicitlyCapturedClosure
+            // ReSharper restore ImplicitlyCapturedClosure
                 {
                     r.WaitOne();
                     handles2 = WindowCore.EnumTopLevelWindows();
@@ -110,6 +110,50 @@ namespace Binarysharp.MSharp.IntegrationTests.Windows
             }
         }
 
+        /// <summary>
+        /// Activates and retrieves the foreground state the test process.
+        /// </summary>
+        [TestMethod]
+        public void ForcetForegroundWindow()
+        {
+            // Arrange
+            var handle = Resources.ProcessTest.MainWindowHandle;
+
+            // Act
+            try
+            {
+                WindowCore.ActivateWindow(handle);
+                Thread.Sleep(500);
+                var ret = WindowCore.GetForegroundWindow();
+                Assert.AreEqual(handle, ret, "Couldn't set or get the foreground.");
+            }
+            catch (ApplicationException ex)
+            {
+                // Assert
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        [TestMethod]
+        public void ForcetForegroundWindowAdvanced()
+        {
+            // Arrange
+            var handle = Resources.ProcessTest.MainWindowHandle;
+
+            // Act
+            try
+            {
+                WindowCore.ForceWindowToForeground(handle);
+                Thread.Sleep(500);
+                var ret = WindowCore.GetForegroundWindow();
+                Assert.AreEqual(handle, ret, "Couldn't set or get the foreground.");
+            }
+            catch (ApplicationException ex)
+            {
+                // Assert
+                Assert.Fail(ex.Message);
+            }
+        }
         /// <summary>
         /// Uses PostMessage to close the process test main window.
         /// </summary>

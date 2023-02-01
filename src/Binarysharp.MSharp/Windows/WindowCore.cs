@@ -7,13 +7,14 @@
  * See the file LICENSE for more information.
 */
 
+using Binarysharp.MSharp.Helpers;
+using Binarysharp.MSharp.Internals;
+using Binarysharp.MSharp.Native;
+
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-using Binarysharp.MSharp.Helpers;
-using Binarysharp.MSharp.Internals;
-using Binarysharp.MSharp.Native;
 
 namespace Binarysharp.MSharp.Windows
 {
@@ -191,7 +192,7 @@ namespace Binarysharp.MSharp.Windows
             // Create the list of windows
             var list = new List<IntPtr>();
             // Create the callback
-            EnumWindowsProc callback = delegate(IntPtr windowHandle, IntPtr lParam)
+            EnumWindowsProc callback = delegate (IntPtr windowHandle, IntPtr lParam)
             {
                 list.Add(windowHandle);
                 return true;
@@ -251,13 +252,13 @@ namespace Binarysharp.MSharp.Windows
 
             // Create the data structure
             var flashInfo = new FlashInfo
-                                {
-                                    Size = Marshal.SizeOf(typeof(FlashInfo)),
-                                    Hwnd = windowHandle,
-                                    Flags = flags,
-                                    Count = count,
-                                    Timeout = Convert.ToInt32(timeout.TotalMilliseconds)
-                                };
+            {
+                Size = Marshal.SizeOf(typeof(FlashInfo)),
+                Hwnd = windowHandle,
+                Flags = flags,
+                Count = count,
+                Timeout = Convert.ToInt32(timeout.TotalMilliseconds)
+            };
 
             // Flash the window
             NativeMethods.FlashWindowEx(ref flashInfo);
@@ -437,7 +438,7 @@ namespace Binarysharp.MSharp.Windows
             ShowWindow(windowHandle, WindowStates.Restore);
 
             // Activate the window
-            if(!NativeMethods.SetForegroundWindow(windowHandle))
+            if (!NativeMethods.SetForegroundWindow(windowHandle))
                 throw new ApplicationException("Couldn't set the window to foreground.");
         }
         #endregion
@@ -521,5 +522,88 @@ namespace Binarysharp.MSharp.Windows
             return NativeMethods.ShowWindow(windowHandle, state);
         }
         #endregion
+        /// <summary>
+        /// Activates the specified window in a more robust way than the default methods. Due to the security adjustments to the SetForegroundWindow API as of Windows Vista (2007). 
+        /// ‘An application can’t force another application to be in the foreground, unless it created it or related to it somehow’ (the full rules can be found here: http://msdn.microsoft.com/en-us/library/windows/desktop/ms633539(v=vs.85).aspx, see ‘Rules’).
+        /// </summary>
+        /// <param name="windowHandle">A handle to the window.</param>
+        public static void ActivateWindow(IntPtr windowHandle)
+        {
+            uint appThreadId = NativeMethods.GetCurrentThreadId();
+            uint foregroundThreadId = NativeMethods.GetWindowThreadProcessId(NativeMethods.GetForegroundWindow(), IntPtr.Zero);
+            if (appThreadId != foregroundThreadId)
+            {
+                NativeMethods.AttachThreadInput(foregroundThreadId, appThreadId, true);
+                if (NativeMethods.IsIconic(windowHandle))
+                {
+                    _ = NativeMethods.ShowWindow(windowHandle, WindowStates.Restore);
+                }
+                _ = NativeMethods.BringWindowToTop(windowHandle);
+                _ = NativeMethods.AttachThreadInput(foregroundThreadId, appThreadId, false);
+            }
+            else
+            {
+                if (NativeMethods.IsIconic(windowHandle))
+                {
+                    _ = NativeMethods.ShowWindow(windowHandle, WindowStates.Restore);
+                }
+                _ = NativeMethods.BringWindowToTop(windowHandle);
+            }
+        }
+        /// <summary>
+        /// The idea is to attach to the target process thread and preform an action. <seealso cref="ForceWindowToForeground(IntPtr)"/> or <seealso cref="SetFocusAttached(IntPtr)"/> for an example usage.
+        /// </summary>
+        /// <param name="action"></param>
+        /// <exception cref="ThreadStateException"></exception>
+        public static void AttachedThreadInputAction(Action action)
+        {
+            uint foregroundThreadId = NativeMethods.GetWindowThreadProcessId(NativeMethods.GetForegroundWindow(),
+                IntPtr.Zero);
+            uint appThreadId = NativeMethods.GetCurrentThreadId();
+            bool threadsAttached = false;
+
+            try
+            {
+                threadsAttached =
+                    foregroundThreadId == appThreadId ||
+                    NativeMethods.AttachThreadInput(foregroundThreadId, appThreadId, true);
+
+                if (threadsAttached)
+                {
+                    action();
+                }
+                else
+                {
+                    throw new ThreadStateException("AttachThreadInput failed.");
+                }
+            }
+            finally
+            {
+                if (threadsAttached)
+                {
+                    _ = NativeMethods.AttachThreadInput(foregroundThreadId, appThreadId, false);
+                }
+            }
+        }
+
+        ///<summary>
+        /// Forces the window to foreground.
+        ///</summary>
+        ///hwnd”>The HWND.</param>
+        public static void ForceWindowToForeground(IntPtr hwnd)
+        {
+            AttachedThreadInputAction(() => { _ = NativeMethods.BringWindowToTop(hwnd); _ = NativeMethods.ShowWindow(hwnd, WindowStates.Show); });
+        }
+        /// <summary>
+        /// By using the AttachThreadInput function, a thread can attach its input processing to another thread. This allows a thread to call SetFocus to set the keyboard focus to a window attached to another thread's message queue. This is done here.
+        /// </summary>
+        /// <param name="hWnd"></param>
+        /// <returns>The result of <seealso cref="NativeMethods.SetFocus"/> call while attaching the thread input action.</returns>
+        public static IntPtr SetFocusAttached(IntPtr hWnd)
+        {
+            IntPtr result = new();
+            AttachedThreadInputAction(() => result = NativeMethods.SetFocus(hWnd));
+            return result;
+        }
     }
 }
